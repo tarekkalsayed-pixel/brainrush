@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const BrainRushApp());
@@ -17,10 +18,24 @@ class BrainRushApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF111827),
+        scaffoldBackgroundColor: const Color(0xFF0B1020),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF38BDF8),
+          seedColor: const Color(0xFF22D3EE),
           brightness: Brightness.dark,
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF22D3EE),
+            foregroundColor: const Color(0xFF07111F),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+            textStyle: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.bold,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
         ),
         useMaterial3: true,
       ),
@@ -29,58 +44,87 @@ class BrainRushApp extends StatelessWidget {
   }
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _bestScore = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBestScore();
+  }
+
+  Future<void> _loadBestScore() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _bestScore = prefs.getInt('bestScore') ?? 0;
+    });
+  }
+
+  Future<void> _startGame() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const GameScreen(),
+      ),
+    );
+
+    if (mounted) {
+      _loadBestScore();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(
                   Icons.psychology_alt,
-                  size: 86,
-                  color: Color(0xFF38BDF8),
+                  size: 82,
+                  color: Color(0xFF22D3EE),
                 ),
-                const SizedBox(height: 24),
-                const Text(
-                  'BrainRush',
-                  style: TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 22),
+                const _GradientTitle(),
+                const SizedBox(height: 10),
                 Text(
                   '60-second brain challenge',
                   style: TextStyle(
                     fontSize: 18,
-                    color: Colors.white.withValues(alpha: 0.72),
+                    color: Colors.white.withValues(alpha: 0.74),
                   ),
                 ),
-                const SizedBox(height: 40),
-                FilledButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const GameScreen(),
-                      ),
-                    );
-                  },
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                  ),
-                  child: const Text(
-                    'Start Game',
-                    style: TextStyle(fontSize: 18),
+                const SizedBox(height: 28),
+                _ScoreCard(
+                  label: 'Best Score',
+                  value: '$_bestScore',
+                  icon: Icons.emoji_events,
+                  color: const Color(0xFFFBBF24),
+                ),
+                const SizedBox(height: 18),
+                const _HowToPlayCard(),
+                const SizedBox(height: 30),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _startGame,
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: const Text('Start Game'),
                   ),
                 ),
               ],
@@ -107,7 +151,8 @@ class _GameScreenState extends State<GameScreen> {
   int _score = 0;
   int _correctAnswer = 0;
   String _question = '';
-  String _feedback = '';
+  String _feedback = 'Choose the correct answer';
+  bool _lastAnswerWasCorrect = true;
   List<int> _answers = [];
 
   @override
@@ -183,9 +228,11 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {
       if (selectedAnswer == _correctAnswer) {
         _score++;
-        _feedback = 'Correct!';
+        _feedback = 'Correct! +1 point';
+        _lastAnswerWasCorrect = true;
       } else {
-        _feedback = 'Wrong! Answer: $_correctAnswer';
+        _feedback = 'Wrong. Answer: $_correctAnswer';
+        _lastAnswerWasCorrect = false;
       }
 
       _generateQuestion();
@@ -194,6 +241,10 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final Color feedbackColor = _lastAnswerWasCorrect
+        ? const Color(0xFF34D399)
+        : const Color(0xFFFB7185);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('BrainRush'),
@@ -208,39 +259,67 @@ class _GameScreenState extends State<GameScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: _InfoBox(
+                    child: _ScoreCard(
                       label: 'Time',
                       value: '$_secondsLeft s',
+                      icon: Icons.timer,
+                      color: const Color(0xFF22D3EE),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _InfoBox(
+                    child: _ScoreCard(
                       label: 'Score',
                       value: '$_score',
+                      icon: Icons.bolt,
+                      color: const Color(0xFFA78BFA),
                     ),
                   ),
                 ],
               ),
               const Spacer(),
-              Text(
-                _question,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 38,
-                  fontWeight: FontWeight.bold,
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 30,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF111827),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: const Color(0xFF243044)),
+                ),
+                child: Text(
+                  _question,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
-              SizedBox(
-                height: 28,
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: feedbackColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: feedbackColor.withValues(alpha: 0.42),
+                  ),
+                ),
                 child: Text(
                   _feedback,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,
-                    color: _feedback == 'Correct!'
-                        ? const Color(0xFF34D399)
-                        : const Color(0xFFF87171),
+                    fontWeight: FontWeight.w700,
+                    color: feedbackColor,
                   ),
                 ),
               ),
@@ -253,13 +332,18 @@ class _GameScreenState extends State<GameScreen> {
                   crossAxisCount: 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: 2.4,
+                  childAspectRatio: 2.35,
                 ),
                 itemBuilder: (context, index) {
                   final int answer = _answers[index];
 
-                  return FilledButton.tonal(
+                  return FilledButton(
                     onPressed: () => _checkAnswer(answer),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF1F2937),
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Color(0xFF334155)),
+                    ),
                     child: Text(
                       '$answer',
                       style: const TextStyle(
@@ -278,49 +362,105 @@ class _GameScreenState extends State<GameScreen> {
   }
 }
 
-class EndScreen extends StatelessWidget {
+class EndScreen extends StatefulWidget {
   const EndScreen({super.key, required this.finalScore});
 
   final int finalScore;
+
+  @override
+  State<EndScreen> createState() => _EndScreenState();
+}
+
+class _EndScreenState extends State<EndScreen> {
+  int _bestScore = 0;
+  bool _isNewBest = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _saveBestScore();
+  }
+
+  Future<void> _saveBestScore() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final int savedBestScore = prefs.getInt('bestScore') ?? 0;
+    final bool isNewBest = widget.finalScore > savedBestScore;
+    final int bestScore = isNewBest ? widget.finalScore : savedBestScore;
+
+    if (isNewBest) {
+      await prefs.setInt('bestScore', bestScore);
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _bestScore = bestScore;
+      _isNewBest = isNewBest;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.emoji_events,
+                Icon(
+                  _isNewBest ? Icons.workspace_premium : Icons.emoji_events,
                   size: 86,
-                  color: Color(0xFFFBBF24),
+                  color: const Color(0xFFFBBF24),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'Time is up!',
-                  style: TextStyle(
+                Text(
+                  _isNewBest ? 'New best score!' : 'Time is up!',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
                     fontSize: 34,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  'Final score: $finalScore',
-                  style: const TextStyle(fontSize: 24),
-                ),
-                const SizedBox(height: 40),
-                FilledButton(
-                  onPressed: () {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (context) => const GameScreen(),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ScoreCard(
+                        label: 'Final Score',
+                        value: '${widget.finalScore}',
+                        icon: Icons.bolt,
+                        color: const Color(0xFFA78BFA),
                       ),
-                    );
-                  },
-                  child: const Text('Play Again'),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _ScoreCard(
+                        label: 'Best Score',
+                        value: '$_bestScore',
+                        icon: Icons.emoji_events,
+                        color: const Color(0xFFFBBF24),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 36),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (context) => const GameScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.replay),
+                    label: const Text('Play Again'),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextButton(
@@ -343,38 +483,142 @@ class EndScreen extends StatelessWidget {
   }
 }
 
-class _InfoBox extends StatelessWidget {
-  const _InfoBox({
+class _GradientTitle extends StatelessWidget {
+  const _GradientTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    return ShaderMask(
+      shaderCallback: (bounds) {
+        return const LinearGradient(
+          colors: [
+            Color(0xFF22D3EE),
+            Color(0xFFA78BFA),
+            Color(0xFFFBBF24),
+          ],
+        ).createShader(bounds);
+      },
+      child: const Text(
+        'BrainRush',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 44,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _HowToPlayCard extends StatelessWidget {
+  const _HowToPlayCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF243044)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF22D3EE).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.info_outline,
+              color: Color(0xFF22D3EE),
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'How to play',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Answer as many math questions as possible in 60 seconds.',
+                  style: TextStyle(
+                    color: Color(0xFFCBD5E1),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScoreCard extends StatelessWidget {
+  const _ScoreCard({
     required this.label,
     required this.value,
+    required this.icon,
+    required this.color,
   });
 
   final String label;
   final String value;
+  final IconData icon;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F2937),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF374151)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.68),
-            ),
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF243044)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
           ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.68),
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
